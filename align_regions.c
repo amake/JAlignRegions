@@ -1,14 +1,23 @@
+/* From appendix of A Program for Aligning Sentences in Bilingual Corpora
+ * William A. Gale, Kenneth W. Church
+ * October 4, 1990
+ * http://www.cs.jhu.edu/~kchurch/wwwfiles/published_1991_acl.txt
+ * Modified for C99
+ */
+
 /*Subject: align_regions.c */
 
 #include <fcntl.h>
-#include <malloc.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-#include <values.h>
 #include <sys/stat.h>
+#include <limits.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 
 /*
 
@@ -31,6 +40,7 @@
 
 #define BIG_DISTANCE 2500
 
+#define MAXINT INT_MAX
 
 struct alignment {
   int x1;
@@ -428,7 +438,7 @@ region_lengths(regions, n)
   if(result == NULL) err("malloc failed");
 
   for(i = 0; i < n; i++)
-    result[i] = length_of_a_region(regions[i]);
+    result[i] = length_of_a_region(&regions[i]);
   return(result);
 }
 
@@ -555,8 +565,8 @@ main(argc, argv)
 
   for( ; hard_regions1 < hard_end1 ; hard_regions1++, hard_regions2++) {
 
-    soft_regions1 = find_sub_regions(hard_regions1[0], soft_delimiter, &number_of_soft_regions1);
-    soft_regions2 = find_sub_regions(hard_regions2[0], soft_delimiter, &number_of_soft_regions2);
+    soft_regions1 = find_sub_regions(&hard_regions1[0], soft_delimiter, &number_of_soft_regions1);
+    soft_regions2 = find_sub_regions(&hard_regions2[0], soft_delimiter, &number_of_soft_regions2);
 
     if(debug){fprintf(out1,"number of soft regions=%d\n",number_of_soft_regions1);
 	      fprintf(out2,"number of soft regions=%d\n",number_of_soft_regions2);}
@@ -582,12 +592,12 @@ main(argc, argv)
 
       for( ; prevx < ix; prevx++)
 	{if(debug)  fprintf(out1,"ix=%d prevx=%d ",ix,prevx);
-	print_region(out1, soft_regions1[prevx], a->d);}
+	print_region(out1, &soft_regions1[prevx], a->d);}
       fprintf(out1, "%s\n", soft_delimiter);
 
       for( ; prevy < iy; prevy++)
 	{if(debug) fprintf(out2,"iy=%d prevy=%d ",iy,prevy);
-	print_region(out2, soft_regions2[prevy], a->d);}
+	print_region(out2, &soft_regions2[prevy], a->d);}
       fprintf(out2, "%s\n", soft_delimiter);
     }
     fprintf(out1, "%s\n", hard_delimiter);
