@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -342,6 +343,113 @@ public class JAlignRegions {
         }
 
         return result;
+    }
+
+    public static class GaleChurchAligner {
+
+        private boolean debug = false;
+        private boolean verbose = false;
+        private PrintStream out1 = null;
+        private PrintStream out2 = null;
+
+        public GaleChurchAligner setDebug(boolean debug) {
+            this.debug = debug;
+            return this;
+        }
+
+        private boolean isDebug() {
+            return debug && out1 != null && out2 != null;
+        }
+
+        public GaleChurchAligner setVerbose(boolean verbose) {
+            this.verbose = verbose;
+            return this;
+        }
+
+        private boolean isVerbose() {
+            return verbose && out1 != null && out2 != null;
+        }
+
+        public GaleChurchAligner setOutputs(PrintStream out1, PrintStream out2) {
+            this.out1 = out1;
+            this.out2 = out2;
+            return this;
+        }
+
+
+        public List<Tuple<List<String>>> align(List<List<String>> softRegions1,
+                List<List<String>> softRegions2) {
+
+            List<Tuple<List<String>>> result = new ArrayList<Tuple<List<String>>>();
+
+            int[] len1 = regionLengths(softRegions1);
+            int[] len2 = regionLengths(softRegions2);
+
+            List<Alignment> align = seqAlign(len1, len2, TWO_SIDE_DISTANCE);
+
+            int prevx = 0, prevy = 0, ix = 0, iy = 0;
+            for (int i = 0; i < align.size(); i++) {
+                Alignment a = align.get(i);
+                if (a.x2 > 0) {
+                    ix++;
+                } else if (a.x1 == 0) {
+                    ix--;
+                }
+                if (a.y2 > 0) {
+                    iy++;
+                } else if (a.y1 == 0) {
+                    iy--;
+                }
+                if (a.x1 == 0 && a.y1 == 0 && a.x2 == 0 && a.y2 == 0) {
+                    ix++;
+                    iy++;
+                }
+                ix++;
+                iy++;
+
+                if (isDebug()) {
+                    String out = "n=" + align.size() + " i=" + i + " x1=" + a.x1 + " y1=" + a.y1 + " x2=" + a.x2
+                            + " y2=" + a.y2;
+                    out1.println(out);
+                    out2.println(out);
+                }
+                if (isVerbose()) {
+                    String out = ".Score " + a.d;
+                    out1.println(out);
+                    out2.println(out);
+                }
+
+                List<String> item1 = new ArrayList<String>();
+                for (; prevx < ix; prevx++) {
+                    if (isDebug()) {
+                        out1.print("ix=" + ix + " prevx=" + prevx + " ");
+                    }
+                    item1.addAll(softRegions1.get(prevx));
+                }
+
+                List<String> item2 = new ArrayList<String>();
+                for (; prevy < iy; prevy++) {
+                    if (isDebug()) {
+                        out2.print("iy=" + iy + " prevy=" + prevy + " ");
+                    }
+                    item2.addAll(softRegions2.get(prevy));
+                }
+
+                result.add(new Tuple<List<String>>(item1, item2));
+            }
+
+            return result;
+        }
+    }
+
+    public static class Tuple<T> {
+        final public T item1;
+        final public T item2;
+
+        public Tuple(T item1, T item2) {
+            this.item1 = item1;
+            this.item2 = item2;
+        }
     }
 
     public static void main(String[] args) throws Exception {
