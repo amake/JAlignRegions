@@ -18,4 +18,4 @@ def main(*files):
                     output.write('.End of Sentence\n')
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main(*sys.argv[1:])
