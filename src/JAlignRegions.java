@@ -391,7 +391,7 @@ public class JAlignRegions {
 
                 for (; prevx < ix; prevx++) {
                     if (debug) {
-                        out1.println("ix=" + ix + " prevx=" + prevx);
+                        out1.print("ix=" + ix + " prevx=" + prevx + " ");
                     }
                     printRegion(out1, softRegions1.get(prevx), a.d);
                 }
@@ -399,7 +399,7 @@ public class JAlignRegions {
 
                 for (; prevy < iy; prevy++) {
                     if (debug) {
-                        out1.println("iy=" + iy + " prevy=" + prevy);
+                        out2.print("iy=" + iy + " prevy=" + prevy + " ");
                     }
                     printRegion(out2, softRegions2.get(prevy), a.d);
                 }
