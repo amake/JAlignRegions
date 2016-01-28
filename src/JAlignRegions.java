@@ -7,6 +7,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/*
+ * usage
+ *
+ * align_regions -D '.PARA' -d '.End of Sentence'  file1 file2
+ *
+ * outputs two files: file1.al & file2.al
+ *
+ * regions are delimited by the -D and -d args
+ *
+ * the program is allowed to delete -d delimiters as necessary in order
+ * align the files, but it cannot change -D delimiters.
+ */
 public class JAlignRegions {
 
     /**
@@ -37,6 +49,31 @@ public class JAlignRegions {
         }
     }
 
+    /*
+     * seq_align by Mike Riley
+     * Sequence alignment routine.
+     * This version allows for contraction/expansions.
+     * 
+     * x and y are sequences of objects, represented as non-zero ints, to be
+     * aligned.
+     * 
+     * dist_funct(x1, y1, x2, y2) is a distance function of 4 args:
+     * 
+     *   dist_funct(x1, y1, 0, 0) gives cost of substitution of x1 by y1.
+     *   dist_funct(x1, 0, 0, 0) gives cost of deletion of x1.
+     *   dist_funct(0, y1, 0, 0) gives cost of insertion of y1.
+     *   dist_funct(x1, y1, x2, 0) gives cost of contraction of (x1,x2) to y1.
+     *   dist_funct(x1, y1, 0, y2) gives cost of expansion of x1 to (y1,y2).
+     *   dist_funct(x1, y1, x2, y2) gives cost to match (x1,x2) to (y1,y2).
+     * 
+     * align is the alignment, with (align[i].x1, align[i].x2) aligned with
+     * (align[i].y1, align[i].y2). Zero in align[].x1 and align[].y1 correspond
+     * to insertion and deletion, respectively. Non-zero in align[].x2 and
+     * align[].y2 correspond to contraction and expansion, respectively.
+     * align[].d gives the distance for that pairing.
+     * 
+     * The function returns the length of the alignment.
+     */
     private static List<Alignment> seqAlign(int[] x, int[] y, IDistanceFunction distFunc) {
         int[][] distances = new int[x.length + 1][y.length + 1];
         int[][] pathX = new int[x.length + 1][y.length + 1];
@@ -164,13 +201,24 @@ public class JAlignRegions {
         int calculate(int x1, int y1, int x2, int y2);
     }
     
+    /*
+     * Returns the area under a normal distribution from -inf to z standard
+     * deviations
+     */
     private static double pnorm(double z) {
         double t = 1 / (1 + 0.2316419 * z);
         double pd = 1 - 0.3989423 * Math.exp(-z * z / 2)
                 * ((((1.330274429 * t - 1.821255978) * t + 1.781477937) * t - 0.356563782) * t + 0.319381530) * t;
+        /* see Gradsteyn & Rhyzik, 26.2.17 p932 */
         return pd;
     }
 
+    /*
+     * Return -100 * log probability that an English sentence of length len1 is
+     * a translation of a foreign sentence of length len2. The probability is
+     * based on two parameters, the mean and variance of number of foreign
+     * characters per English character.
+     */
     private static int match(int len1, int len2) {
         // foreign characters per English character
         double foreignCharsPerEngChar = 1d;
@@ -219,8 +267,11 @@ public class JAlignRegions {
                 return match(x1 + x2, y1 + y2) + penalty22;
             }
         }
-    }; 
+    };
 
+    /*
+     * return an array of strings, one string for each line of the file
+     */
     private static List<String> readlines(String filename) throws IOException {
         List<String> lines = new ArrayList<String>();
         FileInputStream fis = null;
