@@ -9,6 +9,16 @@ import java.util.List;
 
 public class JAlignRegions {
 
+    /**
+     * Affects how the length of a region is determined.
+     * <ul>
+     * <li>true: Counts text length by number of bytes in the system default
+     * encoding. This is how the C version does it.
+     * <li>false: Counts text length by number of codepoints. This seems more
+     * faithful to the intention behind the algorithm.
+     * </ul>
+     */
+    private static final boolean COUNT_BYTES = false;
     private static final int BIG_DISTANCE = 2500;
 
     private static class Alignment {
@@ -218,7 +228,7 @@ public class JAlignRegions {
         BufferedReader br = null;
         try {
             fis = new FileInputStream(filename);
-            isr = new InputStreamReader(fis, "UTF-8");
+            isr = new InputStreamReader(fis); // TODO: Specify encoding
             br = new BufferedReader(isr);
             String line;
             while ((line = br.readLine()) != null) {
@@ -251,7 +261,9 @@ public class JAlignRegions {
         int result = lines.size();
         
         for (String line : lines) {
-            result += line.codePointCount(0, line.length());
+            result += COUNT_BYTES
+                    ? line.getBytes().length // TODO: Specify encoding
+                    : line.codePointCount(0, line.length());
         }
         return result;
     }
