@@ -246,7 +246,7 @@ public class JAlignRegions {
     }
 
     private static int lengthOfARegion(List<String> lines) {
-        int result = 0;
+        int result = lines.size();
         
         for (String line : lines) {
             result += line.codePointCount(0, line.length());
