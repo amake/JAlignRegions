@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class JAlignRegions {
@@ -33,7 +34,7 @@ public class JAlignRegions {
         List<Alignment> ralign = new ArrayList<Alignment>();
 
         for (int j = 0; j <= y.length; j++) {
-            for (int i = 0; i < x.length; i++) {
+            for (int i = 0; i <= x.length; i++) {
                 int d1 = i > 0 && j > 0 ? // substitution
                         distances[i - 1][j - 1] + distFunc.calculate(x[i - 1], y[j - 1], 0, 0)
                         : Integer.MAX_VALUE;
@@ -145,6 +146,7 @@ public class JAlignRegions {
             }
         }
 
+        Collections.reverse(ralign);
         return ralign;
     }
 
