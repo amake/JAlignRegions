@@ -408,6 +408,18 @@ public class JAlignRegions {
             out1.println(hardDelimiter);
             out2.println(hardDelimiter);
         }
+
+        if (out1.checkError()) {
+            System.err.println("Problem writing output file: " + outFilename1);
+            System.exit(2);
+        }
+        if (out2.checkError()) {
+            System.err.println("Problem writing output file: " + outFilename2);
+            System.exit(2);
+        }
+
+        out1.close();
+        out2.close();
     }
 
     private static void err(String msg) {
