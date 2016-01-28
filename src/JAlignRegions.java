@@ -286,7 +286,7 @@ public class JAlignRegions {
         String hardDelimiter = null;
         String filename1 = null;
         String filename2 = null;
-        for (int i = 1; i < args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             if ("-v".equals(arg)) {
                 verbose = true;
@@ -294,9 +294,9 @@ public class JAlignRegions {
                 verbose = true;
                 debug = true;
             } else if ("-d".equals(arg)) {
-                softDelimiter = args[i++];
+                softDelimiter = args[++i];
             } else if ("-D".equals(arg)) {
-                hardDelimiter = args[i++];
+                hardDelimiter = args[++i];
             } else if (filename1 == null) {
                 filename1 = arg;
             } else if (filename2 == null) {
