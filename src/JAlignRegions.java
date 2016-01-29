@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +33,7 @@ public class JAlignRegions {
     private static final boolean COUNT_BYTES = false;
     private static final int BIG_DISTANCE = 2500;
 
-    private static class Alignment {
+    public static class Alignment {
         public final int x1;
         public final int y1;
         public final int x2;
@@ -309,10 +308,11 @@ public class JAlignRegions {
         }
     }
 
-    private static int lengthOfARegion(List<String> lines) {
+    private static int lengthOfARegion(List<?> lines) {
         int result = lines.size();
         
-        for (String line : lines) {
+        for (Object o : lines) {
+            String line = o.toString();
             result += COUNT_BYTES
                     ? line.getBytes().length // TODO: Specify encoding
                     : line.codePointCount(0, line.length());
@@ -320,11 +320,27 @@ public class JAlignRegions {
         return result;
     }
 
-    private static int[] regionLengths(List<List<String>> regions) {
+    private static int lengthOfARegion(String line) {
+        // This count will differ from the tokenized count by virtue of
+        // including spaces instead of the number of tokens.
+        return COUNT_BYTES ? line.getBytes().length // TODO: Specify encoding
+                : line.codePointCount(0, line.length());
+    }
+
+    private static int[] regionLengths(List<?> regions) {
         int[] result = new int[regions.size()];
 
         for (int i = 0; i < regions.size(); i++) {
-            result[i] = lengthOfARegion(regions.get(i));
+            Object region = regions.get(i);
+            int len;
+            if (region instanceof String) {
+                len = lengthOfARegion((String) region);
+            } else if (region instanceof List<?>) {
+                len = lengthOfARegion((List<?>) region);
+            } else {
+                throw new IllegalArgumentException("Unsupported region type: " + region.getClass().getName());
+            }
+            result[i] = len;
         }
         return result;
     }
@@ -345,111 +361,69 @@ public class JAlignRegions {
         return result;
     }
 
-    public static class GaleChurchAligner {
+    public static class Bead<T> {
+        public final Alignment alignment;
+        public final List<T> sourceLines;
+        public final List<T> targetLines;
+        private final List<String> sourceDebug;
+        private final List<String> targetDebug;
 
-        private boolean debug = false;
-        private boolean verbose = false;
-        private PrintStream out1 = null;
-        private PrintStream out2 = null;
-
-        public GaleChurchAligner setDebug(boolean debug) {
-            this.debug = debug;
-            return this;
-        }
-
-        private boolean isDebug() {
-            return debug && out1 != null && out2 != null;
-        }
-
-        public GaleChurchAligner setVerbose(boolean verbose) {
-            this.verbose = verbose;
-            return this;
-        }
-
-        private boolean isVerbose() {
-            return verbose && out1 != null && out2 != null;
-        }
-
-        public GaleChurchAligner setOutputs(PrintStream out1, PrintStream out2) {
-            this.out1 = out1;
-            this.out2 = out2;
-            return this;
-        }
-
-
-        public List<Tuple<List<String>>> align(List<List<String>> softRegions1,
-                List<List<String>> softRegions2) {
-
-            List<Tuple<List<String>>> result = new ArrayList<Tuple<List<String>>>();
-
-            int[] len1 = regionLengths(softRegions1);
-            int[] len2 = regionLengths(softRegions2);
-
-            List<Alignment> align = seqAlign(len1, len2, TWO_SIDE_DISTANCE);
-
-            int prevx = 0, prevy = 0, ix = 0, iy = 0;
-            for (int i = 0; i < align.size(); i++) {
-                Alignment a = align.get(i);
-                if (a.x2 > 0) {
-                    ix++;
-                } else if (a.x1 == 0) {
-                    ix--;
-                }
-                if (a.y2 > 0) {
-                    iy++;
-                } else if (a.y1 == 0) {
-                    iy--;
-                }
-                if (a.x1 == 0 && a.y1 == 0 && a.x2 == 0 && a.y2 == 0) {
-                    ix++;
-                    iy++;
-                }
-                ix++;
-                iy++;
-
-                if (isDebug()) {
-                    String out = "n=" + align.size() + " i=" + i + " x1=" + a.x1 + " y1=" + a.y1 + " x2=" + a.x2
-                            + " y2=" + a.y2;
-                    out1.println(out);
-                    out2.println(out);
-                }
-                if (isVerbose()) {
-                    String out = ".Score " + a.d;
-                    out1.println(out);
-                    out2.println(out);
-                }
-
-                List<String> item1 = new ArrayList<String>();
-                for (; prevx < ix; prevx++) {
-                    if (isDebug()) {
-                        out1.print("ix=" + ix + " prevx=" + prevx + " ");
-                    }
-                    item1.addAll(softRegions1.get(prevx));
-                }
-
-                List<String> item2 = new ArrayList<String>();
-                for (; prevy < iy; prevy++) {
-                    if (isDebug()) {
-                        out2.print("iy=" + iy + " prevy=" + prevy + " ");
-                    }
-                    item2.addAll(softRegions2.get(prevy));
-                }
-
-                result.add(new Tuple<List<String>>(item1, item2));
-            }
-
-            return result;
+        public Bead(Alignment alignment, List<T> sourceLines, List<T> targetLines,
+                List<String> sourceDebug, List<String> targetDebug) {
+            this.alignment = alignment;
+            this.sourceLines = Collections.unmodifiableList(sourceLines);
+            this.targetLines = Collections.unmodifiableList(targetLines);
+            this.sourceDebug = Collections.unmodifiableList(sourceDebug);
+            this.targetDebug = Collections.unmodifiableList(targetDebug);
         }
     }
 
-    public static class Tuple<T> {
-        final public T item1;
-        final public T item2;
+    public static <T> List<Bead<T>> align(List<T> softRegions1, List<T> softRegions2) {
+        int[] len1 = regionLengths(softRegions1);
+        int[] len2 = regionLengths(softRegions2);
 
-        public Tuple(T item1, T item2) {
-            this.item1 = item1;
-            this.item2 = item2;
+        List<Alignment> align = seqAlign(len1, len2, TWO_SIDE_DISTANCE);
+        List<Bead<T>> result = new ArrayList<Bead<T>>();
+
+        int prevx = 0, prevy = 0, ix = 0, iy = 0;
+        for (int i = 0; i < align.size(); i++) {
+            Alignment a = align.get(i);
+            if (a.x2 > 0) {
+                ix++;
+            } else if (a.x1 == 0) {
+                ix--;
+            }
+            if (a.y2 > 0) {
+                iy++;
+            } else if (a.y1 == 0) {
+                iy--;
+            }
+            if (a.x1 == 0 && a.y1 == 0 && a.x2 == 0 && a.y2 == 0) {
+                ix++;
+                iy++;
+            }
+            ix++;
+            iy++;
+
+            List<T> sourceLines = new ArrayList<T>();
+            List<T> targetLines = new ArrayList<T>();
+            List<String> sourceDebug = new ArrayList<String>();
+            List<String> targetDebug = new ArrayList<String>();
+
+            for (; prevx < ix; prevx++) {
+                sourceDebug.add("ix=" + ix + " prevx=" + prevx);
+                sourceLines.add(softRegions1.get(prevx));
+            }
+
+            for (; prevy < iy; prevy++) {
+                targetDebug.add("iy=" + iy + " prevy=" + prevy);
+                targetLines.add(softRegions2.get(prevy));
+            }
+
+            result.add(new Bead<T>(a, sourceLines, targetLines, sourceDebug, targetDebug));
         }
+
+        return result;
     }
 
     public static void main(String[] args) throws Exception {
@@ -525,56 +499,35 @@ public class JAlignRegions {
                 out2.println("number of soft regions=" + softRegions2.size());
             }
 
-            int[] len1 = regionLengths(softRegions1);
-            int[] len2 = regionLengths(softRegions2);
-
-            List<Alignment> align = seqAlign(len1, len2, TWO_SIDE_DISTANCE);
-
-            int prevx = 0, prevy = 0, ix = 0, iy = 0;
-            for (int i = 0; i < align.size(); i++) {
-                Alignment a = align.get(i);
-                if (a.x2 > 0) {
-                    ix++;
-                } else if (a.x1 == 0) {
-                    ix--;
-                }
-                if (a.y2 > 0) {
-                    iy++;
-                } else if (a.y1 == 0) {
-                    iy--;
-                }
-                if (a.x1 == 0 && a.y1 == 0 && a.x2 == 0 && a.y2 == 0) {
-                    ix++;
-                    iy++;
-                }
-                ix++;
-                iy++;
+            List<Bead<List<String>>> beads = align(softRegions1, softRegions2);
+            for (int i = 0; i < beads.size(); i++) {
+                Bead<List<String>> bead = beads.get(i);
 
                 if (debug) {
-                    String out = "n=" + align.size() + " i=" + i + " x1=" + a.x1 + " y1=" + a.y1 + " x2=" + a.x2
-                            + " y2=" + a.y2;
+                    String out = "n=" + beads.size() + " i=" + i + " x1=" + bead.alignment.x1 + " y1="
+                            + bead.alignment.y1 + " x2=" + bead.alignment.x2 + " y2=" + bead.alignment.y2;
                     out1.println(out);
                     out2.println(out);
                 }
                 if (verbose) {
-                    String out = ".Score " + a.d;
+                    String out = ".Score " + bead.alignment.d;
                     out1.println(out);
                     out2.println(out);
                 }
 
-                for (; prevx < ix; prevx++) {
+                for (int k = 0; k < bead.sourceLines.size(); k++) {
                     if (debug) {
-                        out1.print("ix=" + ix + " prevx=" + prevx + " ");
+                        out1.print(bead.sourceDebug.get(k) + " ");
                     }
-                    printRegion(out1, softRegions1.get(prevx), a.d);
+                    printRegion(out1, bead.sourceLines.get(k), bead.alignment.d);
                 }
                 out1.println(softDelimiter);
 
-                for (; prevy < iy; prevy++) {
+                for (int k = 0; k < bead.targetLines.size(); k++) {
                     if (debug) {
-                        out2.print("iy=" + iy + " prevy=" + prevy + " ");
+                        out2.print(bead.targetDebug.get(k) + " ");
                     }
-                    printRegion(out2, softRegions2.get(prevy), a.d);
+                    printRegion(out2, bead.targetLines.get(k), bead.alignment.d);
                 }
                 out2.println(softDelimiter);
             }
