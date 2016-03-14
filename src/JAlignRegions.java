@@ -3,6 +3,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,6 +22,16 @@ import java.util.List;
  */
 public class JAlignRegions {
 
+    private static final int BIG_DISTANCE = 2500;
+
+    // foreign characters per English character
+    public static final double DEFAULT_FOREIGN_CHARS_PER_ENG_CHAR = 1d;
+    // variance per English character
+    public static final double DEFAULT_VAR_PER_ENG_CHAR = 6.8d;
+
+    private final double foreignCharsPerEngChar;
+    private final double varPerEngChar;
+    private final Charset encoding;
     /**
      * Affects how the length of a region is determined.
      * <ul>
@@ -30,8 +41,22 @@ public class JAlignRegions {
      * faithful to the intention behind the algorithm.
      * </ul>
      */
-    private static final boolean COUNT_BYTES = false;
-    private static final int BIG_DISTANCE = 2500;
+    private final boolean countBytes;
+
+    public JAlignRegions() {
+        this(DEFAULT_FOREIGN_CHARS_PER_ENG_CHAR, DEFAULT_VAR_PER_ENG_CHAR);
+    }
+
+    public JAlignRegions(double foreignCharsPerEngChar, double varPerEngChar) {
+        this(foreignCharsPerEngChar, varPerEngChar, Charset.defaultCharset(), false);
+    }
+
+    public JAlignRegions(double foreignCharsPerEngChar, double varPerEngChar, Charset encoding, boolean countBytes) {
+        this.foreignCharsPerEngChar = foreignCharsPerEngChar;
+        this.varPerEngChar = varPerEngChar;
+        this.encoding = encoding;
+        this.countBytes = countBytes;
+    }
 
     public static class Alignment {
         public final int x1;
@@ -219,11 +244,7 @@ public class JAlignRegions {
      * based on two parameters, the mean and variance of number of foreign
      * characters per English character.
      */
-    private static int match(int len1, int len2) {
-        // foreign characters per English character
-        double foreignCharsPerEngChar = 1d;
-        // variance per English character
-        double varPerEngChar = 6.8d;
+    private int match(int len1, int len2) {
 
         if (len1 == 0 && len2 == 0) {
             return 0;
@@ -244,7 +265,7 @@ public class JAlignRegions {
         }
     }
 
-    private static final IDistanceFunction TWO_SIDE_DISTANCE = new IDistanceFunction() {
+    private final IDistanceFunction TWO_SIDE_DISTANCE = new IDistanceFunction() {
         @Override
         public int calculate(int x1, int y1, int x2, int y2) {
             int penalty21 = 230; // -100 * log([prob of 2-1 match] / [prob of 1-1 match])
@@ -272,14 +293,14 @@ public class JAlignRegions {
     /*
      * return an array of strings, one string for each line of the file
      */
-    private static List<String> readlines(String filename) throws IOException {
+    private List<String> readlines(String filename) throws IOException {
         List<String> lines = new ArrayList<String>();
         FileInputStream fis = null;
         InputStreamReader isr = null;
         BufferedReader br = null;
         try {
             fis = new FileInputStream(filename);
-            isr = new InputStreamReader(fis); // TODO: Specify encoding
+            isr = new InputStreamReader(fis, encoding);
             br = new BufferedReader(isr);
             String line;
             while ((line = br.readLine()) != null) {
@@ -308,26 +329,26 @@ public class JAlignRegions {
         }
     }
 
-    private static int lengthOfARegion(List<?> lines) {
+    private int lengthOfARegion(List<?> lines) {
         int result = lines.size();
         
         for (Object o : lines) {
-            String line = o.toString();
-            result += COUNT_BYTES
-                    ? line.getBytes().length // TODO: Specify encoding
-                    : line.codePointCount(0, line.length());
+            result += lengthOfAString(o.toString());
         }
         return result;
     }
 
-    private static int lengthOfARegion(String line) {
+    private int lengthOfARegion(String line) {
         // This count will differ from the tokenized count by virtue of
         // including spaces instead of the number of tokens.
-        return COUNT_BYTES ? line.getBytes().length // TODO: Specify encoding
-                : line.codePointCount(0, line.length());
+        return lengthOfAString(line);
     }
 
-    private static int[] regionLengths(List<?> regions) {
+    private int lengthOfAString(String s) {
+        return countBytes ? encoding.encode(s).limit() : s.codePointCount(0, s.length());
+    }
+
+    private int[] regionLengths(List<?> regions) {
         int[] result = new int[regions.size()];
 
         for (int i = 0; i < regions.size(); i++) {
@@ -378,7 +399,7 @@ public class JAlignRegions {
         }
     }
 
-    public static <T> List<Bead<T>> align(List<T> softRegions1, List<T> softRegions2) {
+    public <T> List<Bead<T>> align(List<T> softRegions1, List<T> softRegions2) {
         int[] len1 = regionLengths(softRegions1);
         int[] len2 = regionLengths(softRegions2);
 
@@ -476,8 +497,10 @@ public class JAlignRegions {
             System.exit(2);
         }
 
-        List<String> lines1 = readlines(filename1);
-        List<String> lines2 = readlines(filename2);
+        JAlignRegions aligner = new JAlignRegions();
+
+        List<String> lines1 = aligner.readlines(filename1);
+        List<String> lines2 = aligner.readlines(filename2);
 
         List<List<String>> hardRegions1 = findSubRegions(lines1, hardDelimiter);
         List<List<String>> hardRegions2 = findSubRegions(lines2, hardDelimiter);
@@ -499,7 +522,7 @@ public class JAlignRegions {
                 out2.println("number of soft regions=" + softRegions2.size());
             }
 
-            List<Bead<List<String>>> beads = align(softRegions1, softRegions2);
+            List<Bead<List<String>>> beads = aligner.align(softRegions1, softRegions2);
             for (int i = 0; i < beads.size(); i++) {
                 Bead<List<String>> bead = beads.get(i);
 
